@@ -6,10 +6,7 @@
 #
 # Run this from the top-level directory (not from a workspace). There's some top-level files
 # that are required.
-#
-# Current state: This is currently failing in the package-dynamic-plugins command because podman
-# is not installed... There must be another way to achieve this with a FROM scratch build...
-FROM registry.redhat.io/ubi9/nodejs-20:latest
+FROM registry.redhat.io/ubi9/nodejs-20:latest AS builder
 
 WORKDIR /plugin-workspace
 
@@ -34,7 +31,6 @@ RUN \
     corepack use 'yarn@4' && \
     yarn --version && \
     yarn install --immutable && \
-    echo 'YOLO' && \
     yarn tsc
 
 RUN \
@@ -46,21 +42,11 @@ RUN \
     npx @janus-idp/cli@latest package export-dynamic-plugin
 
 RUN \
+    mkdir -p /plugin-output && \
     cd workspaces/redhat-argocd && \
-    npx @janus-idp/cli@latest package package-dynamic-plugins --tag local
-# RUN \
-#     # cd workspace/redhat-arogcd && \
-#     node --version && \
-#     npm install -g corepack && \
-#     # npm install -g yarn && \
-#     corepack --version && \
-#     corepack enable yarn && \
-#     corepack use 'yarn@4.6.0' && \
-#     yarn --version && \
-#     yarn install --immutable && \
-#     yarn tsc
+    npx @janus-idp/cli@latest package package-dynamic-plugins --export-to /plugin-output
 
-# RUN \
-#     ls -la . && \
-#     cd plugins/argocd-backend && \
-#     npx @janus-idp/cli@latest package export-dynamic-plugin
+FROM scratch
+
+COPY --from=builder /plugin-output /
+
